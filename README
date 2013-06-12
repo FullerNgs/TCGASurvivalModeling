@@ -1,0 +1,15 @@
+1) Uploaded the bootstrap subdivisions emailed to me from Yuan Yuan
+
+synapse add GBM_test_sample_list.txt -parentid syn1714078 -name GBM_test_sample_list.txt -description "`cat tmp.txt`" -used  `synapse query "select id from entity where fileType=='sampleList' and acronym=='GBM'"|tail -1` 
+synapse add GBM_train_sample_list.txt -parentid syn1714078 -name GBM_train_sample_list.txt -description "`cat tmp.txt`" -used  `synapse query "select id from entity where fileType=='sampleList' and acronym=='GBM'"|tail -1` 
+
+synapse add KIRC_test_sample_list.txt -parentid syn1714078 -name KIRC_test_sample_list.txt -description "`cat tmp.txt`" -used  `synapse query "select id from entity where fileType=='sampleList' and acronym=='KIRC'"|tail -1` 
+synapse add KIRC_train_sample_list.txt -parentid syn1714078 -name KIRC_train_sample_list.txt -description "`cat tmp.txt`" -used  `synapse query "select id from entity where fileType=='sampleList' and acronym=='KIRC'"|tail -1` 
+
+synapse add LUSC_test_sample_list.txt -parentid syn1714078 -name LUSC_test_sample_list.txt -description "`cat tmp.txt`" -used  `synapse query "select id from entity where fileType=='sampleList' and acronym=='LUSC'"|tail -1` 
+synapse add LUSC_train_sample_list.txt -parentid syn1714078 -name LUSC_train_sample_list.txt -description "`cat tmp.txt`" -used  `synapse query "select id from entity where fileType=='sampleList' and acronym=='LUSC'"|tail -1` 
+
+synapse add OV_test_sample_list.txt -parentid syn1714078 -name OV_test_sample_list.txt -description "`cat tmp.txt`" -used  `synapse query "select id from entity where fileType=='sampleList' and acronym=='OV'"|tail -1` 
+synapse add OV_train_sample_list.txt -parentid syn1714078 -name OV_train_sample_list.txt -description "`cat tmp.txt`" -used  `synapse query "select id from entity where fileType=='sampleList' and acronym=='OV'"|tail -1` 
+
+

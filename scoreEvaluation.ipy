@@ -1,0 +1,96 @@
+import synapseclient
+import synapseHelpers
+import numpy as np
+import os
+syn = synapseclient.Synapse()
+syn.login()
+
+EVALUATION_ID=1876290
+LEADERBOARD_ID= 55678
+SURVIVALDATA={'GBM':'syn1710370', 'KIRC':'syn1710303', 'LUSC':'syn1710384', 'OV':'syn1710363'}
+TESTLABELS       ={'GBM':'syn1714083', 'KIRC':'syn1714090', 'LUSC':'syn1714096', 'OV':'syn1714102'}
+
+evaluation=syn.getEvaluation(EVALUATION_ID)
+leaderboard = syn.getWiki(evaluation, LEADERBOARD_ID)
+
+
+# Data Type  | GBM        | KIRC       | LUSC       |  OV       
+# test       |syn1714083  | syn1714090 | syn1714096 | syn1714102 
+# train      |syn1714087 	| syn1714093 | syn1714099 | syn1714105 
+# CNV        |syn1710366 	| syn1710287 | syn1710378 | syn1710316 
+# RPPA       |            | syn1710306 | syn1710386 | syn1710314 
+# mRNA       |syn1710372 	| syn1710293 | syn1710382 | syn1710361 
+# methylation|syn1710374 	| syn1710289 |            | syn1710320
+# miRNA      |syn1710368 	| syn1710291 | syn1710380 | syn1710359
+# Survival   |syn1710370 	| syn1710303 | syn1710384 | syn1710363 
+# clinical   |syn1715822 	| syn1715824 | syn1715826 | syn1715828 
+
+
+def match(seq1, seq2):
+    """Finds the index locations of seq1 in seq2"""
+    return [ np.nonzero(seq2==x)[0][0] for x in seq1  if x in seq2 ]
+
+
+def readFile(entity, strip=None):
+    with open(os.path.join(entity['cacheDir'], entity['files'][0])) as f:
+        data = np.asarray([l.strip(strip).split('\t') for l in f])
+    return data
+
+
+%load_ext rmagic
+%R require(survival); require(randomSurvivalForest); require(survcomp)
+
+#Modify score of submissions
+for submission in  syn.getSubmissions(evaluation, status='OPEN'):
+    status =  syn.getSubmissionStatus(submission)
+    entity=syn.get(submission.entityId)
+    cancer=entity.get('cancer', [''])[0]
+    dataType=entity.get('dataType', [''])[0]
+    print status, cancer
+
+    #Do some basic error checking
+    try:
+        data=readFile(entity).astype(np.float)
+    except:
+        status.report = 'Unable to read file for %s' %entity.id
+        status.status = 'INVALID'
+        syn.store(status)
+        continue
+    if cancer not in SURVIVALDATA.keys():
+        status.report = 'The submitted entity must have a cancer annotation specified as one of %s' % str(SURVIVALDATA.keys())
+        status.status = 'INVALID'
+        syn.store(status)
+        continue
+    #Perform scoring
+    testLabels = readFile(syn.get(TESTLABELS[cancer]))
+    survival=readFile(syn.get(SURVIVALDATA[cancer]), '\n')
+    concordanceIndexes=[]
+    for bootstrapIdx, patientLabels in enumerate(testLabels.T):
+        #Determine Extract the training and testing sets of one bootstrap
+        testIdx = match(patientLabels, survival[:,0])
+        
+        #Verify that the labels are the same
+        assert np.all(patientLabels==survival[testIdx,0])
+
+        survTime = survival[testIdx,1].astype(np.int)
+        survStatus = survival[testIdx,2].astype(np.int)
+
+        #Extract results for specific boostrap
+        if data.shape[1]==100:
+            predictedResponse = data[:,bootstrapIdx]
+        else:
+            predictedResponse = data[bootstrapIdx,:]
+
+        %Rpush predictedResponse survStatus survTime
+        %R -o concordance concordance <- concordance.index(predictedResponse, survTime, survStatus)$c.index
+        concordanceIndexes.append(concordance)
+    status.score=np.mean(concordanceIndexes)
+    status.status='SCORED'
+    status.report=cancer + ', ' + dataType
+    syn.store(status)
+
+synapseHelpers.updateLeaderboard(leaderboard, evaluation)
+
+
+#Clean up and remove all of the evaluations and leaderboard location
+#syn.delete(evaluation)
