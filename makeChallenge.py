@@ -8,14 +8,15 @@ evaluation = syn.store(synapseclient.Evaluation(name='Pancancer Survival Predict
                                                 status='OPEN', contentSource='syn1710282'))
 print 'Evaluation:', evaluation.id   #Evaluation: 1876290
 syn.addEvaluationParticipant(evaluation)  #Add myself to the evaluation
+homeEntity=syn.get('syn1710282')
 
 
 ##Create wiki page for competition
 homeWikiPage = synapseclient.Wiki(title="TCGA Pancancer Survival Prediction", 
                                   markdown=open('description.md').read(),
-                                  owner=evaluation)
+                                  owner=homeEntity)
 homeWikiPage = syn.store(homeWikiPage)
-print 'Home wiki:', homeWikiPage.id  #Home wiki: 55677
+print 'Home wiki:', homeWikiPage.id  #Home wiki: 27303
 
 
 #Create sub wiki page containing leaderboard
