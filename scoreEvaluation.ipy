@@ -39,7 +39,7 @@ def readFile(path, strip=None):
 
 %load_ext rmagic
 %R require(survival); require(randomSurvivalForest); require(survcomp)
-
+asdfa
 #Modify score of submissions
 for submission, status in  syn.getSubmissionBundles(evaluation, status='RECEIVED'):
     print submission.id, submission.entityId, submission.versionNumber#, json.loads(submission.entityBundleJSON)['entityType']
@@ -101,7 +101,6 @@ for submission, status in  syn.getSubmissionBundles(evaluation, status='RECEIVED
     status.annotations=synapseclient.annotations.to_submission_status_annotations(annots, is_private=False)
     status.status='SCORED'
     syn.store(status)
-
 
 #synapseHelpers.updateLeaderboard(leaderboard, evaluation)
 
