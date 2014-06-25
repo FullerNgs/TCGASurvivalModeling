@@ -1,7 +1,7 @@
 import synapseclient
-import synapseHelpers
 import numpy as np
 import os
+import json
 syn = synapseclient.Synapse()
 syn.login()
 
@@ -11,7 +11,7 @@ SURVIVALDATA={'GBM':'syn1710370', 'KIRC':'syn1710303', 'LUSC':'syn1710384', 'OV'
 TESTLABELS       ={'GBM':'syn1714083', 'KIRC':'syn1714090', 'LUSC':'syn1714096', 'OV':'syn1714102'}
 
 evaluation=syn.getEvaluation(EVALUATION_ID)
-leaderboard = syn.getWiki(evaluation, LEADERBOARD_ID)
+#leaderboard = syn.getWiki(evaluation, LEADERBOARD_ID)
 
 
 # Data Type  | GBM        | KIRC       | LUSC       |  OV       
@@ -31,8 +31,8 @@ def match(seq1, seq2):
     return [ np.nonzero(seq2==x)[0][0] for x in seq1  if x in seq2 ]
 
 
-def readFile(entity, strip=None):
-    with open(os.path.join(entity['cacheDir'], entity['files'][0])) as f:
+def readFile(path, strip=None):
+    with open(path) as f:
         data = np.asarray([l.strip(strip).split('\t') for l in f])
     return data
 
@@ -41,29 +41,37 @@ def readFile(entity, strip=None):
 %R require(survival); require(randomSurvivalForest); require(survcomp)
 
 #Modify score of submissions
-for submission in  syn.getSubmissions(evaluation, status='OPEN'):
-    status =  syn.getSubmissionStatus(submission)
-    entity=syn.get(submission.entityId)
-    cancer=entity.get('cancer', [''])[0]
-    dataType=entity.get('dataType', [''])[0]
-    print status, cancer
-
-    #Do some basic error checking
+for submission, status in  syn.getSubmissionBundles(evaluation, status='RECEIVED'):
+    print submission.id, submission.entityId, submission.versionNumber#, json.loads(submission.entityBundleJSON)['entityType']
+    annots = dict()
+    #To support our old style locationables
+    if json.loads(submission.entityBundleJSON)['entityType'] == 'org.sagebionetworks.repo.model.Data':
+        ent = syn.get(submission['entityId']) #, version = submission['versionNumber'])
+        submission.entity = ent
+        submission.filePath = os.path.join(ent.cacheDir, ent.files[0])
+    else:
+        submission = syn.getSubmission(submission)
     try:
-        data=readFile(entity).astype(np.float)
+        data=readFile(submission.filePath).astype(np.float)
+        cancer=submission.entity.get('cancer', [''])[0]
+        dataType=submission.entity.get('dataType', [''])[0]
     except:
-        status.report = 'Unable to read file for %s' %entity.id
+        print '\tFAILED'
         status.status = 'INVALID'
+        annots['error'] = 'Unable to read file for %s' %submission.id
+        status.annotations=synapseclient.annotations.to_submission_status_annotations(annots, is_private=False)
         syn.store(status)
         continue
     if cancer not in SURVIVALDATA.keys():
-        status.report = 'The submitted entity must have a cancer annotation specified as one of %s' % str(SURVIVALDATA.keys())
+        annots['error'] = ('The submitted entity must have a cancer annotation '
+                           'specified as one of %s' % str(SURVIVALDATA.keys()))
         status.status = 'INVALID'
+        status.annotations=synapseclient.annotations.to_submission_status_annotations(annots, is_private=False)
         syn.store(status)
         continue
     #Perform scoring
-    testLabels = readFile(syn.get(TESTLABELS[cancer]))
-    survival=readFile(syn.get(SURVIVALDATA[cancer]), '\n')
+    testLabels = readFile(syn.get(TESTLABELS[cancer]).path)
+    survival=readFile(syn.get(SURVIVALDATA[cancer]).path, '\n')
     concordanceIndexes=[]
     for bootstrapIdx, patientLabels in enumerate(testLabels.T):
         #Determine Extract the training and testing sets of one bootstrap
@@ -84,13 +92,22 @@ for submission in  syn.getSubmissions(evaluation, status='OPEN'):
         %Rpush predictedResponse survStatus survTime
         %R -o concordance concordance <- concordance.index(predictedResponse, survTime, survStatus)$c.index
         concordanceIndexes.append(concordance)
-    status.score=np.mean(concordanceIndexes)
+    print '\t', np.mean(concordanceIndexes)
+    annots['score'] = np.mean(concordanceIndexes)
+    annots['std'] = np.std(concordanceIndexes)
+    annots['cancer'] = cancer
+    annots['dataType'] =  dataType
+    annots['error']=''
+    status.annotations=synapseclient.annotations.to_submission_status_annotations(annots, is_private=False)
     status.status='SCORED'
-    status.report=cancer + ', ' + dataType
     syn.store(status)
 
-synapseHelpers.updateLeaderboard(leaderboard, evaluation)
+
+#synapseHelpers.updateLeaderboard(leaderboard, evaluation)
 
 
 #Clean up and remove all of the evaluations and leaderboard location
 #syn.delete(evaluation)
+
+
+#${supertable?path=%2Fevaluation%2Fsubmission%2Fquery%3Fquery%3Dselect%2B%2A%2Bfrom%2Bevaluation%5F1876290&paging=true&queryTableResults=true&showIfLoggedInOnly=false&pageSize=25&showRowNumber=false&jsonResultsKeyName=rows&columnConfig0=none%2CScore%2Cscore%3B%2CNONE&columnConfig1=none%2CSubmission%2CentityId%3B%2CNONE&columnConfig2=userid%2CSubmitter%2CuserId%3B%2CNONE&columnConfig3=none%2CSubmission Name%2Cname%3B%2CNONE&columnConfig4=none%2CScore %2528mean%2529%2Cscore%3B%2CNONE&columnConfig5=none%2C%252B%252F%252D std%2Cstd%3B%2CNONE&columnConfig6=none%2CCancer%2Ccancer%3B%2CNONE&columnConfig7=none%2Cinput Data Type%2CdataType%3B%2CNONE&columnConfig8=synapseid%2Csubmission%2CentityId%3B%2CNONE&columnConfig9=epochdate%2Cdate%2CmodifiedOn%3B%2CDESC&columnConfig10=none%2CError Message%2Cerror%3B%2CNONE}
