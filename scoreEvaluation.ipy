@@ -11,6 +11,7 @@ EVALUATION_ID=1876290
 LEADERBOARD_ID= 55678
 SURVIVALDATA={'GBM':'syn1710370', 'KIRC':'syn1710303', 'LUSC':'syn1710384', 'OV':'syn1710363'}
 TESTLABELS       ={'GBM':'syn1714083', 'KIRC':'syn1714090', 'LUSC':'syn1714096', 'OV':'syn1714102'}
+LARSSON_ID = '372127'
 
 evaluation=syn.getEvaluation(EVALUATION_ID)
 #leaderboard = syn.getWiki(evaluation, LEADERBOARD_ID)
@@ -48,6 +49,10 @@ try:
     #Modify score of submissions
     for submission, status in  syn.getSubmissionBundles(evaluation, status='RECEIVED'):
         print submission.id, submission.entityId, submission.versionNumber#, json.loads(submission.entityBundleJSON)['entityType']
+        syn.sendMessage([LARSSON_ID], 'TCGASurvivalAnalysis: New submission', 
+                        'Submission: %s\nEntity:https://www.synapse.org/#!Synapse:%s/version/%s' %(submission.id,
+                                                                                           submission.entityId, 
+                                                                                           submission.versionNumber))
         annots = dict()
         #To support our old style locationables
         if json.loads(submission.entityBundleJSON)['entityType'] == 'org.sagebionetworks.repo.model.Data':
