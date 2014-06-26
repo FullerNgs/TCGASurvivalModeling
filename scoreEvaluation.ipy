@@ -4,8 +4,8 @@ import os
 import json
 import sys
 import traceback
-syn = synapseclient.Synapse()
-syn.login()
+syn = synapseclient.Synapse(skip_checks=True)
+syn.login(silent=True)
 
 EVALUATION_ID=1876290
 LEADERBOARD_ID= 55678
@@ -35,7 +35,7 @@ def match(seq1, seq2):
 
 
 def readFile(path, strip=None):
-    with open(path) as f:
+    with open(path, 'rU') as f:
         data = np.asarray([l.strip(strip).split('\t') for l in f])
     return data
 
