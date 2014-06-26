@@ -107,7 +107,7 @@ try:
         status.status='SCORED'
         syn.store(status)
 except Exception, e:
-    traceback.print_exc(file=sys.stdout)
+    traceback.print_exc(file=sys.stderr)
     os._exit(3)
 
 #Clean up and remove all of the evaluations and leaderboard location
